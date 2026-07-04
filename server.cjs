@@ -5,8 +5,13 @@ const crypto = require('crypto')
 
 const app = express()
 require('dotenv').config()
-const PORT = process.env.PORT || 3001
-const PASSWORD = process.env.TODO_PASSWORD || 'poke123'
+const PORT = process.env.PORT
+const PASSWORD = process.env.TODO_PASSWORD
+
+if (!PORT || !PASSWORD) {
+  console.error('Missing PORT or TODO_PASSWORD in .env')
+  process.exit(1)
+}
 
 // Init DB
 const db = new Database(path.join(__dirname, 'todo.db'))
