@@ -21,6 +21,17 @@ db.exec(`
   )
 `)
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subtasks (
+    id TEXT PRIMARY KEY,
+    todo_id TEXT NOT NULL,
+    text TEXT NOT NULL,
+    completed INTEGER DEFAULT 0,
+    created_at INTEGER DEFAULT (strftime('%s','now')),
+    FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
+  )
+`)
+
 app.use(express.json())
 app.use(express.static(path.join(__dirname, 'dist')))
 
@@ -53,10 +64,14 @@ app.post('/api/login', (req, res) => {
   res.status(401).json({ error: 'Invalid password' })
 })
 
-// Get all todos
+// Include subtasks in todo response
 app.get('/api/todos', auth, (req, res) => {
   const rows = db.prepare('SELECT * FROM todos ORDER BY created_at DESC').all()
-  res.json(rows.map(r => ({ ...r, completed: !!r.completed })))
+  const result = rows.map(r => {
+    const subs = db.prepare('SELECT * FROM subtasks WHERE todo_id = ? ORDER BY created_at ASC').all(r.id)
+    return { ...r, completed: !!r.completed, subtasks: subs.map(s => ({ ...s, completed: !!s.completed })) }
+  })
+  res.json(result)
 })
 
 // Create todo
@@ -88,9 +103,50 @@ app.patch('/api/todos/:id', auth, (req, res) => {
   res.json({ ...row, completed: !!row.completed })
 })
 
-// Delete todo
+// Delete todo (cascade deletes subtasks)
 app.delete('/api/todos/:id', auth, (req, res) => {
+  db.prepare('DELETE FROM subtasks WHERE todo_id = ?').run(req.params.id)
   db.prepare('DELETE FROM todos WHERE id = ?').run(req.params.id)
+  res.json({ ok: true })
+})
+
+// --- Subtasks ---
+
+// Get subtasks for a todo
+app.get('/api/todos/:id/subtasks', auth, (req, res) => {
+  const rows = db.prepare('SELECT * FROM subtasks WHERE todo_id = ? ORDER BY created_at ASC').all(req.params.id)
+  res.json(rows.map(r => ({ ...r, completed: !!r.completed })))
+})
+
+// Create subtask
+app.post('/api/todos/:id/subtasks', auth, (req, res) => {
+  const { text } = req.body
+  if (!text?.trim()) return res.status(400).json({ error: 'Text required' })
+  const todo = db.prepare('SELECT id FROM todos WHERE id = ?').get(req.params.id)
+  if (!todo) return res.status(404).json({ error: 'Todo not found' })
+  const id = Date.now().toString() + crypto.randomBytes(4).toString('hex')
+  db.prepare('INSERT INTO subtasks (id, todo_id, text) VALUES (?, ?, ?)').run(id, req.params.id, text)
+  const row = db.prepare('SELECT * FROM subtasks WHERE id = ?').get(id)
+  res.json({ ...row, completed: !!row.completed })
+})
+
+// Toggle/update subtask
+app.patch('/api/todos/:todoId/subtasks/:subId', auth, (req, res) => {
+  const sub = db.prepare('SELECT * FROM subtasks WHERE id = ? AND todo_id = ?').get(req.params.subId, req.params.todoId)
+  if (!sub) return res.status(404).json({ error: 'Subtask not found' })
+  if (req.body.completed !== undefined) {
+    db.prepare('UPDATE subtasks SET completed = ? WHERE id = ?').run(req.body.completed ? 1 : 0, req.params.subId)
+  }
+  if (req.body.text !== undefined) {
+    db.prepare('UPDATE subtasks SET text = ? WHERE id = ?').run(req.body.text, req.params.subId)
+  }
+  const row = db.prepare('SELECT * FROM subtasks WHERE id = ?').get(req.params.subId)
+  res.json({ ...row, completed: !!row.completed })
+})
+
+// Delete subtask
+app.delete('/api/todos/:todoId/subtasks/:subId', auth, (req, res) => {
+  db.prepare('DELETE FROM subtasks WHERE id = ? AND todo_id = ?').run(req.params.subId, req.params.todoId)
   res.json({ ok: true })
 })
 
