@@ -1,0 +1,7 @@
+node_modules/
+dist/
+todo.db
+todo.db-wal
+todo.db-shm
+.tanstack/
+.vinxi/

@@ -1,23 +1,37 @@
-import { defineConfig } from 'vinxi';
-import { tanstackRouterVite } from '@tanstack/router-plugin/vite';
+import { createApp } from 'vinxi';
+import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 
-export default defineConfig({
-  routers: {
-    public: {
+export default createApp({
+  routers: [
+    {
       type: 'static',
+      name: 'public',
       dir: './public',
       base: '/',
     },
-    client: {
+    {
       type: 'client',
+      name: 'client',
       handler: './app/client.tsx',
       target: 'browser',
-      plugins: () => [tanstackRouterVite()],
+      plugins: () => [
+        TanStackRouterVite({
+          routesDirectory: './app/routes',
+          generatedRouteTree: './app/routeTree.gen.ts',
+        }),
+      ],
     },
-    ssr: {
+    {
       type: 'http',
+      name: 'ssr',
       handler: './app/ssr.tsx',
       target: 'server',
+      plugins: () => [
+        TanStackRouterVite({
+          routesDirectory: './app/routes',
+          generatedRouteTree: './app/routeTree.gen.ts',
+        }),
+      ],
     },
-  },
+  ],
 });
