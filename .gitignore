@@ -5,3 +5,5 @@ todo.db-wal
 todo.db-shm
 .tanstack/
 .vinxi/
+.env
+.env.*
