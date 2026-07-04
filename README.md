@@ -33,6 +33,8 @@
 | 🖥️ **Backend** | Express.js (`server.cjs`) — serves API + static files |
 | 🗄️ **Database** | SQLite3 (`better-sqlite3`) with WAL mode |
 | 🔑 **Auth** | Token-based, 7-day expiry, auto-extended on each request |
+| 🌐 **Middleware** | `cors` — Cross-origin request handling |
+| ⚙️ **Config** | `dotenv` — Environment variable loading |
 
 ---
 
@@ -117,10 +119,17 @@ todo/
 │   ├── 🚀 main.tsx        # React entry point
 │   └── 🎨 styles.css      # Tailwind + dark theme + mobile responsive
 ├── 📂 dist/               # Built production assets
+├── 📂 public/
+│   ├── 📲 manifest.json   # PWA manifest
+│   └── 🔧 sw.js           # Service worker
 ├── 🌐 index.html          # HTML entry (PWA meta tags)
 ├── ⚡ vite.config.ts      # Vite configuration
+├── 📱 app.config.ts       # App configuration
+├── ⚡ postcss.config.js   # PostCSS configuration
+├── 🔧 tsconfig.json       # TypeScript configuration
 ├── 🎨 tailwind.config.js  # Tailwind config
 ├── 📦 package.json
+├── 📦 package-lock.json
 └── 🚫 .gitignore
 ```
 
