@@ -1,115 +1,110 @@
-# todo-tanstack 🌴 (Premium Notion-Style Todo PWA)
+# Todo PWA
 
-A high-performance, minimalist Todo Progressive Web App (PWA) built with **TanStack Start**. Designed with an absolute black (#000000) Notion-style aesthetic, this application provides a premium, distraction-free experience for managing tasks across devices.
+A minimalist, Notion-style todo app with subtasks, categories, and cross-device sync.
 
-## ✨ Core Features
+## Features
 
-- **🎯 Premium Aesthetic**: Minimalist, absolute black (#000000) UI inspired by Notion's clean design system.
-- **📱 PWA Ready**: Full Progressive Web App support with `sw.js` and `manifest.json` for home screen installation and offline capabilities.
-- **🔐 Secure Access**: Protected by custom JWT-based authentication.
-- **📂 Task Categories**: Organize your life with built-in categories: **Work**, **Personal**, and **Urgent**.
-- **⚡ High Performance**: Powered by TanStack Start for lightning-fast transitions and server-side rendering benefits.
+- **Tasks & Subtasks** — Add optional subtasks to any task, with expand/collapse
+- **Categories** — Personal, Work, Urgent, Server, Home, App (with color-coded badges)
+- **Filter Pills** — Filter by category, horizontally scrollable on mobile
+- **Sections** — Active tasks grouped by category, collapsible completed section
+- **Clear Completed** — Bulk delete all completed tasks
+- **Auth** — Password-protected with 7-day token sessions
+- **Mobile Responsive** — Touch-friendly, no iOS zoom, safe-area notch support, PWA installable
+- **Dark Theme** — Absolute black (`#000000`) Notion-style aesthetic
 
-## 🛠 Tech Stack
+## Tech Stack
 
-- **Framework**: [TanStack Start](https://tanstack.com/start)
-- **Styling**: Tailwind CSS (Custom Absolute Black Theme)
-- **Authentication**: JWT (JSON Web Tokens)
-- **Deployment**: Bare-metal Node.js
+- **Frontend**: Vite + React + Tailwind CSS
+- **Backend**: Express.js (`server.cjs`) serving both API and static files
+- **Database**: SQLite3 (`better-sqlite3`) with WAL mode
+- **Auth**: Token-based (7-day expiry, auto-extended on each request)
 
----
+## API Endpoints
 
-## 🚀 Bare-Metal Deployment Guide (Riyadh Server)
+| Method | Route | Description |
+|--------|-------|-------------|
+| `POST` | `/api/login` | Authenticate with password, returns token |
+| `GET` | `/api/todos` | Get all todos (includes subtasks) |
+| `POST` | `/api/todos` | Create a todo |
+| `PATCH` | `/api/todos/:id` | Update todo (text, completed, category) |
+| `DELETE` | `/api/todos/:id` | Delete todo (cascades subtasks) |
+| `POST` | `/api/todos/:id/subtasks` | Create a subtask |
+| `PATCH` | `/api/todos/:todoId/subtasks/:subId` | Update subtask |
+| `DELETE` | `/api/todos/:todoId/subtasks/:subId` | Delete subtask |
 
-This guide outlines the steps for a professional "No-Docker" deployment on a Riyadh-based bare-metal Ubuntu/Debian server.
+## Deployment
 
-### 1. Prerequisites
-
-Ensure your server has Node.js (LTS) and npm installed:
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-sudo apt-get install -y nodejs
-```
-
-### 2. Environment Configuration
-
-The application requires specific environment variables for authentication and networking. Create a `.env` file in the root directory:
-
-```env
-PORT=3000
-TODO_PASSWORD=your_secure_password # Fallback: poke123
-JWT_SECRET=your_jwt_secret_key
-```
-
-### 3. Build & Production Prep
-
-Install dependencies and generate the production build:
+### Build
 
 ```bash
-# Install dependencies
 npm install
-
-# Build the TanStack Start application
 npm run build
 ```
 
-### 4. Systemd Service Management
-
-To ensure the application remains active and restarts automatically after reboots, create a systemd service unit.
-
-Create the file: `/etc/systemd/system/todo-tanstack.service`
-
-```ini
-[Unit]
-Description=todo-tanstack 🌴 - Premium Notion-Style Todo PWA
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/var/www/todo-tanstack
-ExecStart=/usr/bin/npm run start
-Restart=always
-Environment=NODE_ENV=production
-Environment=PORT=3000
-Environment=TODO_PASSWORD=your_secure_password
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Enable and Start the Service:**
+### Run
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable todo-tanstack
-sudo systemctl start todo-tanstack
+node server.cjs
 ```
 
-### 5. Reverse Proxy & SSL (Cloudflare Tunnel)
+Listens on port `3001` by default.
 
-It is highly recommended to expose the application via a **Cloudflare Tunnel** for secure, low-latency access in Riyadh without opening public ports.
+### Systemd Service
 
-1. Install `cloudflared` on your server.
-2. Authenticate and create a tunnel: `cloudflared tunnel create todo-pwa`
-3. Route the tunnel to the application port:
-   ```yaml
-   ingress:
-     - hostname: todo.yourdomain.com
-       service: http://localhost:3000
-     - service: http_status:404
-   ```
-4. Run the tunnel as a service.
+The app runs as a systemd service `todo-app`:
 
-Alternatively, use **Nginx** pointing directly to port `3000` with an SSL certificate from Let's Encrypt.
+```bash
+sudo systemctl restart todo-app
+sudo systemctl status todo-app
+```
 
----
+Service file: `/etc/systemd/system/todo-app.service`
 
-## 🔒 Authentication Philosophy
+### Nginx (optional reverse proxy)
 
-The app uses a strict JWT-based validation layer. Access is granted by validating against the `TODO_PASSWORD` environment variable. If no variable is provided, the system defaults to `poke123` for initial setup.
+```nginx
+location /todo {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
 
----
+## Database Schema
 
-Designed with ❤️ for high-performance productivity.
+```sql
+CREATE TABLE todos (
+  id TEXT PRIMARY KEY,
+  text TEXT NOT NULL,
+  completed INTEGER DEFAULT 0,
+  category TEXT DEFAULT 'Personal',
+  created_at INTEGER DEFAULT (strftime('%s','now'))
+);
+
+CREATE TABLE subtasks (
+  id TEXT PRIMARY KEY,
+  todo_id TEXT NOT NULL,
+  text TEXT NOT NULL,
+  completed INTEGER DEFAULT 0,
+  created_at INTEGER DEFAULT (strftime('%s','now')),
+  FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
+);
+```
+
+## Project Structure
+
+```
+todo/
+├── server.cjs          # Express server (API + static serving)
+├── src/
+│   ├── App.tsx         # Main React component
+│   ├── main.tsx        # React entry point
+│   └── styles.css      # Tailwind + custom dark theme + mobile responsive
+├── dist/               # Built production assets
+├── index.html          # HTML entry (PWA meta tags)
+├── vite.config.ts      # Vite configuration
+├── tailwind.config.js  # Tailwind config
+├── package.json
+└── .gitignore
+```
